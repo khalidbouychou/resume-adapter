@@ -345,3 +345,38 @@ MIT License - feel free to use this project for any purpose.
 ---
 
 **Note**: This project is for educational and personal use. Be mindful of LinkedIn's Terms of Service when scraping job postings. For production use, consider using official APIs.
+
+---
+
+## Updated Configuration (Multi‑Provider)
+
+This repo now supports multiple LLM providers with fallbacks. Copy the example env and set the keys you want to use:
+
+```bash
+cp .env.example .env
+```
+
+- Primary (default): Hugging Face Inference with NVIDIA Nemotron model
+  - `HUGGINGFACE_API_KEY` (required)
+  - `HUGGINGFACE_MODEL` (default: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16`)
+  - `HF_MAX_NEW_TOKENS`, `HF_TEMPERATURE`
+- OpenRouter (OpenAI-compatible): `OPENROUTER_API_KEY`, optional `OPENROUTER_*`
+- OpenAI: `OPENAI_API_KEY`, optional base/model overrides
+- DeepSeek: `DEEPSEEK_API_KEY`
+- xAI Grok: `XAI_API_KEY`
+
+Control the provider order via `PROVIDER_ORDER`, e.g.:
+
+```bash
+export PROVIDER_ORDER=huggingface,openrouter,openai,deepseek,grok
+```
+
+Run (dev):
+
+```bash
+pip install -r backend/requirements.txt
+python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+cd frontend && npm install && npm run dev
+```
+
+Dev proxy: [frontend/vite.config.js](frontend/vite.config.js) forwards `/api/*` to the backend and strips `/api`.

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload, Link2, FileText, Loader2 } from 'lucide-react'
 import { Button } from './components/Button'
 import { Input } from './components/Input'
@@ -10,6 +10,25 @@ function App() {
   const [latexCode, setLatexCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [retrySeconds, setRetrySeconds] = useState(0)
+  const [autoRetry, setAutoRetry] = useState(false)
+
+  useEffect(() => {
+    if (retrySeconds <= 0) return
+    const timer = setInterval(() => {
+      setRetrySeconds((s) => (s > 0 ? s - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [retrySeconds])
+
+  // Auto-retry once countdown completes
+  useEffect(() => {
+    if (autoRetry && retrySeconds === 0) {
+      setAutoRetry(false)
+      // Re-run generate when timer finishes
+      handleGenerate()
+    }
+  }, [autoRetry, retrySeconds])
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
@@ -42,7 +61,7 @@ function App() {
       formData.append('cv_file', cvFile)
       formData.append('job_url', jobUrl)
 
-      const response = await fetch('http://localhost:8000/generate-resume', {
+      const response = await fetch('/api/generate-resume', {
         method: 'POST',
         body: formData,
       })
@@ -54,8 +73,13 @@ function App() {
 
       const data = await response.json()
       setLatexCode(data.latex_code)
-    } catch (err) {
-      setError(err.message || 'An error occurred while generating the resume')
+    } catch (err) { 
+      const msg = err.message || 'An error occurred while generating the resume'
+      setError(msg)
+      if (msg.includes('The service is busy right now')) {
+        setRetrySeconds(60)
+        setAutoRetry(true)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -125,13 +149,16 @@ function App() {
             {error && (
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-md">
                 <p className="text-sm text-red-600">{error}</p>
+                {retrySeconds > 0 && (
+                  <p className="mt-2 text-sm text-gray-600">Please wait {retrySeconds}s before retrying.</p>
+                )}
               </div>
             )}
 
             {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={isLoading}
+              disabled={isLoading || retrySeconds > 0}
               size="lg"
               className="w-full"
             >
@@ -143,7 +170,7 @@ function App() {
               ) : (
                 <>
                   <FileText className="mr-2 h-4 w-4" />
-                  Generate Adapted Resume
+                  {retrySeconds > 0 ? `Please wait ${retrySeconds}s` : 'Generate Adapted Resume'}
                 </>
               )}
             </Button>
